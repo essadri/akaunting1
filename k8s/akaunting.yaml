@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: akaunting
+  namespace: akaunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: akaunting
+  template:
+    metadata:
+      labels:
+        app: akaunting
+    spec:
+      securityContext:
+        fsGroup: 33          # 👈 www-data group (THIS IS THE FIX)
+      containers:
+        - name: akaunting
+          image: 147997152282.dkr.ecr.us-east-1.amazonaws.com/akaunting:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: DB_HOST
+              value: mysql
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: akaunting
+            - name: DB_USERNAME
+              value: akaunting
+            - name: DB_PASSWORD
+              value: akauntingpass
+            - name: DB_PREFIX
+              value: akon_
+

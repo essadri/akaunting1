@@ -25,7 +25,10 @@ RUN composer install --no-interaction --prefer-dist \
     && npm install \
     && cp .env.example .env \
     && php artisan key:generate \
-    && chmod -R 755 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache
+
+RUN chown -R www-data:www-data storage bootstrap/cache
+
 
 EXPOSE 80
 CMD ["apache2-foreground"]

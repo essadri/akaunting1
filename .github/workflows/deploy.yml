@@ -3,44 +3,47 @@ name: Deploy Akaunting to EKS
 on:
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: akaunting
+  AWS_REGION: us-east-1
+
 jobs:
   ci:
     name: CI - Build & Push to ECR
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker image
-        run: docker build -t akaunting-app .
-
-      - name: Tag & Push image to ECR
+      - name: Build and push Docker image (NO CACHE)
         run: |
-          docker tag akaunting-app:latest \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/akaunting:latest
-
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/akaunting:latest
+          docker buildx build \
+            --no-cache \
+            --platform linux/amd64 \
+            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest \
+            --push .
 
   deploy:
     name: Deploy to EKS
     runs-on: ubuntu-latest
-    needs: [ci]
+    needs: ci
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
@@ -48,7 +51,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Install kubectl
         run: |
@@ -59,9 +62,14 @@ jobs:
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region us-east-1 \
+            --region ${{ env.AWS_REGION }} \
             --name akaunting-devsecops2
 
-      - name: Deploy to Kubernetes (full stack)
+      - name: Deploy manifests
         run: |
           kubectl apply -f k8s/
+
+      - name: Force restart Akaunting pods
+        run: |
+          kubectl rollout restart deployment akaunting -n akaunting
+
