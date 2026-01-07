@@ -14,30 +14,37 @@ spec:
         app: mysql
     spec:
       containers:
-        - name: mysql
-          image: mysql:8.0
-          env:
-            - name: MYSQL_DATABASE
-              value: "akaunting"
-            - name: MYSQL_USER
-              value: "akaunting"
-            - name: MYSQL_PASSWORD
-              value: "akauntingpass"
-            - name: MYSQL_ROOT_PASSWORD
-              value: "rootpassword"
-          ports:
-            - containerPort: 3306
-          volumeMounts:
-            - name: mysql-storage
-              mountPath: /var/lib/mysql
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
-      volumes:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_DATABASE
+        ports:
+        - containerPort: 3306
+        volumeMounts:
         - name: mysql-storage
-          persistentVolumeClaim:
-            claimName: mysql-pvc
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc

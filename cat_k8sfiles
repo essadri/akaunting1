@@ -1,0 +1,185 @@
+#!/bin/bash
+echo "================================================"
+echo "VERIFYING K8S FILES"
+echo "================================================"
+echo ""
+
+# Check if k8s directory exists
+if [ ! -d "k8s" ]; then
+    echo "❌ ERROR: k8s directory not found!"
+    exit 1
+fi
+
+echo "📁 Found k8s directory with files:"
+ls -la k8s/
+echo ""
+
+# Check each file
+echo "================================================"
+echo "CHECKING EACH FILE:"
+echo "================================================"
+echo ""
+
+# 1. namespace.yaml
+echo "1. namespace.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/namespace.yaml" ]; then
+    cat k8s/namespace.yaml
+    echo -e "\n✅ File exists and looks good"
+else
+    echo "❌ MISSING: namespace.yaml"
+fi
+echo ""
+
+# 2. mysql-pvc.yaml
+echo "2. mysql-pvc.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/mysql-pvc.yaml" ]; then
+    cat k8s/mysql-pvc.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: mysql-pvc.yaml"
+fi
+echo ""
+
+# 3. mysql-secret.yaml
+echo "3. mysql-secret.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/mysql-secret.yaml" ]; then
+    cat k8s/mysql-secret.yaml
+    echo -e "\n✅ File exists (passwords should be changed in production)"
+else
+    echo "❌ MISSING: mysql-secret.yaml"
+fi
+echo ""
+
+# 4. mysql-deployment.yaml
+echo "4. mysql-deployment.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/mysql-deployment.yaml" ]; then
+    cat k8s/mysql-deployment.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: mysql-deployment.yaml"
+fi
+echo ""
+
+# 5. mysql-service.yaml
+echo "5. mysql-service.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/mysql-service.yaml" ]; then
+    cat k8s/mysql-service.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: mysql-service.yaml"
+fi
+echo ""
+
+# 6. akaunting-config.yaml
+echo "6. akaunting-config.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/akaunting-config.yaml" ]; then
+    cat k8s/akaunting-config.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: akaunting-config.yaml"
+fi
+echo ""
+
+# 7. akaunting-deployment.yaml
+echo "7. akaunting-deployment.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/akaunting-deployment.yaml" ]; then
+    cat k8s/akaunting-deployment.yaml
+    echo -e "\n⚠️  WARNING: Need to replace IMAGE_PLACEHOLDER with your ECR image!"
+    echo "   Example: 123456789.dkr.ecr.us-east-1.amazonaws.com/akaunting:latest"
+else
+    echo "❌ MISSING: akaunting-deployment.yaml"
+fi
+echo ""
+
+# 8. akaunting-service.yaml
+echo "8. akaunting-service.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/akaunting-service.yaml" ]; then
+    cat k8s/akaunting-service.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: akaunting-service.yaml"
+fi
+echo ""
+
+# 9. phpmyadmin-deployment.yaml
+echo "9. phpmyadmin-deployment.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/phpmyadmin-deployment.yaml" ]; then
+    cat k8s/phpmyadmin-deployment.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: phpmyadmin-deployment.yaml"
+fi
+echo ""
+
+# 10. phpmyadmin-service.yaml
+echo "10. phpmyadmin-service.yaml:"
+echo "--------------------------------"
+if [ -f "k8s/phpmyadmin-service.yaml" ]; then
+    cat k8s/phpmyadmin-service.yaml
+    echo -e "\n✅ File exists"
+else
+    echo "❌ MISSING: phpmyadmin-service.yaml"
+fi
+echo ""
+
+# Check for image placeholder
+echo "================================================"
+echo "CRITICAL CHECK: IMAGE PLACEHOLDER"
+echo "================================================"
+if grep -q "IMAGE_PLACEHOLDER" k8s/akaunting-deployment.yaml 2>/dev/null; then
+    echo "❌ CRITICAL: akaunting-deployment.yaml contains IMAGE_PLACEHOLDER"
+    echo "   You MUST update this with your actual ECR image before deployment!"
+    echo "   Example command:"
+    echo "   sed -i 's|IMAGE_PLACEHOLDER|123456789.dkr.ecr.us-east-1.amazonaws.com/akaunting:latest|g' k8s/akaunting-deployment.yaml"
+else
+    echo "✅ Image placeholder has been replaced"
+fi
+echo ""
+
+# Validate YAML syntax
+echo "================================================"
+echo "VALIDATING YAML SYNTAX"
+echo "================================================"
+for file in k8s/*.yaml; do
+    if [ -f "$file" ]; then
+        echo "Checking: $(basename $file)"
+        if python3 -c "import yaml; yaml.safe_load(open('$file'))" 2>/dev/null || python -c "import yaml; yaml.safe_load(open('$file'))" 2>/dev/null; then
+            echo "  ✅ Valid YAML"
+        else
+            echo "  ⚠️  Could not validate YAML (python yaml module may not be installed)"
+        fi
+    fi
+done
+echo ""
+
+# Show deployment command
+echo "================================================"
+echo "DEPLOYMENT COMMAND"
+echo "================================================"
+echo "To deploy all files:"
+echo "kubectl apply -f k8s/"
+echo ""
+echo "To deploy individually:"
+echo "kubectl apply -f k8s/namespace.yaml"
+echo "kubectl apply -f k8s/mysql-pvc.yaml"
+echo "kubectl apply -f k8s/mysql-secret.yaml"
+echo "kubectl apply -f k8s/mysql-deployment.yaml"
+echo "kubectl apply -f k8s/mysql-service.yaml"
+echo "kubectl apply -f k8s/akaunting-config.yaml"
+echo "kubectl apply -f k8s/akaunting-deployment.yaml"
+echo "kubectl apply -f k8s/akaunting-service.yaml"
+echo "kubectl apply -f k8s/phpmyadmin-deployment.yaml"
+echo "kubectl apply -f k8s/phpmyadmin-service.yaml"
+echo ""
+echo "================================================"
+echo "VERIFICATION COMPLETE"
+echo "================================================"

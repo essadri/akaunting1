@@ -1,0 +1,258 @@
+#!/bin/bash
+mkdir -p k8s
+
+# 1. namespace.yaml
+cat > k8s/namespace.yaml << 'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: akaunting
+EOF
+
+# 2. mysql-pvc.yaml
+cat > k8s/mysql-pvc.yaml << 'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: akaunting
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+EOF
+
+# 3. mysql-secret.yaml
+cat > k8s/mysql-secret.yaml << 'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: akaunting
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: rootpassword
+  MYSQL_PASSWORD: akauntingpass
+  MYSQL_DATABASE: akaunting
+EOF
+
+# 4. mysql-deployment.yaml
+cat > k8s/mysql-deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: akaunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_DATABASE
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+EOF
+
+# 5. mysql-service.yaml
+cat > k8s/mysql-service.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: akaunting
+spec:
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+EOF
+
+# 6. akaunting-config.yaml
+cat > k8s/akaunting-config.yaml << 'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: akaunting-config
+  namespace: akaunting
+data:
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_NAME: akaunting
+  DB_USERNAME: akaunting
+  DB_PREFIX: akon_
+EOF
+
+# 7. akaunting-deployment.yaml
+cat > k8s/akaunting-deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: akaunting
+  namespace: akaunting
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: akaunting
+  template:
+    metadata:
+      labels:
+        app: akaunting
+    spec:
+      containers:
+      - name: akaunting
+        image: IMAGE_PLACEHOLDER
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: akaunting-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: akaunting-config
+              key: DB_PORT
+        - name: DB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: akaunting-config
+              key: DB_NAME
+        - name: DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: akaunting-config
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        - name: DB_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: akaunting-config
+              key: DB_PREFIX
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+EOF
+
+# 8. akaunting-service.yaml
+cat > k8s/akaunting-service.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: akaunting
+  namespace: akaunting
+spec:
+  selector:
+    app: akaunting
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer
+EOF
+
+# 9. phpmyadmin-deployment.yaml
+cat > k8s/phpmyadmin-deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpmyadmin
+  namespace: akaunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpmyadmin
+  template:
+    metadata:
+      labels:
+        app: phpmyadmin
+    spec:
+      containers:
+      - name: phpmyadmin
+        image: phpmyadmin/phpmyadmin
+        env:
+        - name: PMA_HOST
+          value: mysql
+        - name: PMA_PORT
+          value: "3306"
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+EOF
+
+# 10. phpmyadmin-service.yaml
+cat > k8s/phpmyadmin-service.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpmyadmin
+  namespace: akaunting
+spec:
+  selector:
+    app: phpmyadmin
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer
+EOF
+
+echo "✅ Created all k8s files in ./k8s/"
+echo ""
+echo "📋 IMPORTANT: Update akaunting-deployment.yaml with your ECR image URL:"
+echo "   Replace 'IMAGE_PLACEHOLDER' with: YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/akaunting:latest"
