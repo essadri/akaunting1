@@ -9,15 +9,12 @@ env:
 
 jobs:
   ci:
-    name: CI - Build & Push to ECR
+    name: CI - Mirror Akaunting Image to ECR
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -29,13 +26,27 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push Docker image (NO CACHE)
+      - name: Pull Akaunting image from Docker Hub
         run: |
-          docker buildx build \
-            --no-cache \
-            --platform linux/amd64 \
-            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest \
-            --push .
+          docker pull akaunting/akaunting:latest
+
+      - name: Tag Akaunting image for ECR
+        run: |
+          docker tag akaunting/akaunting:latest \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest
+
+      - name: Push Akaunting image to ECR
+        run: |
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest
+
+      - name: Build, Tag & Push php-api to ECR
+        run: |
+          docker build -t php-api:latest -f Dockerfile.api .
+          docker tag php-api:latest \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:php-api
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:php-api
 
   deploy:
     name: Deploy to EKS
@@ -72,4 +83,3 @@ jobs:
       - name: Force restart Akaunting pods
         run: |
           kubectl rollout restart deployment akaunting -n akaunting
-
