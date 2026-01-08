@@ -22,6 +22,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: akaunting-local
     container_name: akaunting_app
     restart: unless-stopped
     depends_on:
