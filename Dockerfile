@@ -29,7 +29,7 @@ COPY docker/entrypoint.sh /usr/local/bin/akaunting-entrypoint
 
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader \
     && npm install \
-    && npm run build \
+    && npm run production \
     && chmod -R 775 storage bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x /usr/local/bin/akaunting-entrypoint
