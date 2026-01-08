@@ -1,85 +1,34 @@
-name: Deploy Akaunting to EKS
+name: Deploy Akaunting to Minikube
 
 on:
-  workflow_dispatch:
-
-env:
-  IMAGE_NAME: akaunting
-  AWS_REGION: us-east-1
+  push:
+    branches:
+      - main
 
 jobs:
-  ci:
-    name: CI - Mirror Akaunting Image to ECR
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Pull Akaunting image from Docker Hub
-        run: |
-          docker pull akaunting/akaunting:latest
-
-      - name: Tag Akaunting image for ECR
-        run: |
-          docker tag akaunting/akaunting:latest \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest
-
-      - name: Push Akaunting image to ECR
-        run: |
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:latest
-
-      - name: Build, Tag & Push php-api to ECR
-        run: |
-          docker build -t php-api:latest -f Dockerfile.api .
-          docker tag php-api:latest \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:php-api
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}:php-api
-
   deploy:
-    name: Deploy to EKS
     runs-on: ubuntu-latest
-    needs: ci
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Copy Kubernetes manifests to server
+        uses: appleboy/scp-action@v0.1.7
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "k8s/akaunting-all.yaml"
+          target: "~/k8s"
 
-      - name: Install kubectl
-        run: |
-          curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            chmod +x ~/deploy-akaunting.sh
+            ~/deploy-akaunting.sh
 
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig \
-            --region ${{ env.AWS_REGION }} \
-            --name akaunting-devsecops2
-
-      - name: Deploy manifests
-        run: |
-          kubectl apply -f k8s/
-
-      - name: Force restart Akaunting pods
-        run: |
-          kubectl rollout restart deployment akaunting -n akaunting
