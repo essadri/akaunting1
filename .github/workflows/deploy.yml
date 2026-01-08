@@ -1,4 +1,5 @@
 name: Deploy Akaunting to Minikube
+ 
 
 on:
   push:
