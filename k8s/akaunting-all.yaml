@@ -1,37 +1,31 @@
-# akaunting-all.yaml
+# docker-compose-to-k8s.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: akaunting
+
 ---
+# MySQL Service (replaces mysql service)
 apiVersion: v1
-kind: Secret
+kind: Service
 metadata:
-  name: mysql-secrets
+  name: mysql
   namespace: akaunting
-type: Opaque
-stringData:
-  root-password: rootpassword
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
+
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mysql-init
-  namespace: akaunting
-data:
-  init.sql: |
-    CREATE DATABASE IF NOT EXISTS akaunting;
-    CREATE USER IF NOT EXISTS 'akaunting'@'%' IDENTIFIED BY 'akauntingpass';
-    GRANT ALL PRIVILEGES ON akaunting.* TO 'akaunting'@'%';
-    FLUSH PRIVILEGES;
----
+# MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
   namespace: akaunting
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: mysql
@@ -43,51 +37,42 @@ spec:
       containers:
       - name: mysql
         image: mysql:8.0
-        ports:
-        - containerPort: 3306
         env:
         - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secrets
-              key: root-password
+          value: "rootpassword"
         - name: MYSQL_DATABASE
           value: "akaunting"
         - name: MYSQL_USER
           value: "akaunting"
         - name: MYSQL_PASSWORD
           value: "akauntingpass"
-        volumeMounts:
-        - name: mysql-data
-          mountPath: /var/lib/mysql
-        - name: mysql-init
-          mountPath: /docker-entrypoint-initdb.d
-      volumes:
-      - name: mysql-data
-        emptyDir: {}
-      - name: mysql-init
-        configMap:
-          name: mysql-init
+        ports:
+        - containerPort: 3306
+
 ---
+# Akaunting Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysql
+  name: akaunting
   namespace: akaunting
 spec:
-  selector:
-    app: mysql
+  type: NodePort
   ports:
-  - port: 3306
-    targetPort: 3306
+  - port: 80
+    targetPort: 80
+    nodePort: 30000  # Maps to your Docker Compose port 8000
+  selector:
+    app: akaunting
+
 ---
+# Akaunting Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: akaunting
   namespace: akaunting
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: akaunting
@@ -98,15 +83,13 @@ spec:
     spec:
       containers:
       - name: akaunting
-        image: akaunting/akaunting:latest
-        ports:
-        - containerPort: 80
+        image: 147997152282.dkr.ecr.us-east-1.amazonaws.com/akaunting:latest
         env:
         - name: DB_HOST
-          value: "mysql"
+          value: "mysql"  # Service name
         - name: DB_PORT
           value: "3306"
-        - name: DB_DATABASE
+        - name: DB_NAME
           value: "akaunting"
         - name: DB_USERNAME
           value: "akaunting"
@@ -114,23 +97,5 @@ spec:
           value: "akauntingpass"
         - name: DB_PREFIX
           value: "akon_"
-        volumeMounts:
-        - name: akaunting-data
-          mountPath: /var/www/html
-      volumes:
-      - name: akaunting-data
-        emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: akaunting
-  namespace: akaunting
-spec:
-  type: NodePort
-  selector:
-    app: akaunting
-  ports:
-  - port: 80
-    targetPort: 80
-    nodePort: 30000
+        ports:
+        - containerPort: 80

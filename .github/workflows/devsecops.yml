@@ -197,7 +197,7 @@ jobs:
         run: |
           echo "📤 Uploading DAST report to DefectDojo..."
           
-          if [ -f zap-report.json ]; then
+          if [ -f zap-report.html ]; then
             echo "✅ Found zap-report.json file"
             
             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
@@ -205,7 +205,7 @@ jobs:
               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
               -F "product=$DEFECTDOJO_PRODUCT_ID" \
               -F "scan_type=ZAP Scan" \
-              -F "file=@zap-report.json" \
+              -F "file=@zap-report.html" \
               --max-time 30 \
               || echo "⚠️  DAST upload had issues, but continuing..."
               
