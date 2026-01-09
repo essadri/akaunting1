@@ -6,7 +6,7 @@ set -e
 kubectl apply -f ~/deploy/k8s/akaunting-all.yaml
 
 # Wait for deployments to be ready
-sleep 30
+sleep 100
 
 # Start Minikube tunnel if not already running
 if ! pgrep -f "minikube tunnel" >/dev/null; then
