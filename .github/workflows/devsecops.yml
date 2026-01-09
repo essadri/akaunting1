@@ -1,3 +1,4 @@
+
 name: DevSecOps Pipeline - Akaunting
 
 on:
@@ -18,21 +19,21 @@ jobs:
     name: SAST - Semgrep
     runs-on: ubuntu-latest
     needs: ci
-    
-    # ========== DEFECTDOJO CONFIGURATION ==========
+
     env:
       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
       DEFECTDOJO_PRODUCT_ID: '1'
       DEFECTDOJO_ENGAGEMENT_ID: '1'
-    # ==============================================
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Semgrep
         run: |
           python3 -m pip install --upgrade pip
           pip install semgrep
+
       - name: Semgrep JSON
         run: |
           semgrep scan \
@@ -41,6 +42,7 @@ jobs:
             --json \
             --output semgrep.json \
             .
+
       - name: Semgrep SARIF
         run: |
           semgrep scan \
@@ -49,6 +51,7 @@ jobs:
             --sarif \
             --output semgrep.sarif \
             .
+
       - name: Upload SAST report
         uses: actions/upload-artifact@v4
         with:
@@ -56,47 +59,35 @@ jobs:
           path: |
             semgrep.json
             semgrep.sarif
-      
-      # ========== UPLOAD TO DEFECTDOJO ==========
+
       - name: Upload SAST to DefectDojo
         if: always()
         run: |
-          echo "📤 Uploading SAST report to DefectDojo..."
-          
           if [ -f semgrep.json ]; then
-            echo "✅ Found semgrep.json file"
-            
             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
               -F "product=$DEFECTDOJO_PRODUCT_ID" \
               -F "scan_type=Semgrep JSON Report" \
               -F "file=@semgrep.json" \
-              --max-time 30 \
-              || echo "⚠️  SAST upload had issues, but continuing..."
-              
-            echo "✅ SAST upload attempt completed"
-          else
-            echo "❌ semgrep.json not found, skipping upload"
+              --max-time 30 || true
           fi
-      # ==========================================
 
   sca:
     name: SCA - Trivy
     runs-on: ubuntu-latest
     needs: ci
-    
-    # ========== DEFECTDOJO CONFIGURATION ==========
+
     env:
       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
       DEFECTDOJO_PRODUCT_ID: '1'
       DEFECTDOJO_ENGAGEMENT_ID: '1'
-    # ==============================================
 
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t akaunting-app .
+
       - name: Trivy JSON
         uses: aquasecurity/trivy-action@0.24.0
         with:
@@ -106,6 +97,7 @@ jobs:
           output: trivy-report.json
           severity: HIGH,CRITICAL
           exit-code: 0
+
       - name: Trivy Table
         run: |
           docker run --rm \
@@ -113,6 +105,7 @@ jobs:
             aquasec/trivy:latest image \
             --format table \
             akaunting-app > trivy-report.txt
+
       - name: Upload SCA report
         uses: actions/upload-artifact@v4
         with:
@@ -120,56 +113,46 @@ jobs:
           path: |
             trivy-report.json
             trivy-report.txt
-      
-      # ========== UPLOAD TO DEFECTDOJO ==========
+
       - name: Upload SCA to DefectDojo
         if: always()
         run: |
-          echo "📤 Uploading SCA report to DefectDojo..."
-          
           if [ -f trivy-report.json ]; then
-            echo "✅ Found trivy-report.json file"
-            
             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
               -F "product=$DEFECTDOJO_PRODUCT_ID" \
               -F "scan_type=Trivy Scan" \
               -F "file=@trivy-report.json" \
-              --max-time 30 \
-              || echo "⚠️  SCA upload had issues, but continuing..."
-              
-            echo "✅ SCA upload attempt completed"
-          else
-            echo "❌ trivy-report.json not found, skipping upload"
+              --max-time 30 || true
           fi
-      # ==========================================
 
   dast:
     name: DAST - OWASP ZAP
     runs-on: ubuntu-latest
-    
-    # ========== DEFECTDOJO CONFIGURATION ==========
+
     env:
       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
       DEFECTDOJO_PRODUCT_ID: '1'
       DEFECTDOJO_ENGAGEMENT_ID: '1'
-    # ==============================================
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
       - name: Start application
         run: |
           docker compose up --build -d
           sleep 90
+
       - name: Verify app is reachable
         run: |
           curl -I http://localhost:8000
+
       - name: Pull OWASP ZAP image
         run: |
           docker pull ghcr.io/zaproxy/zaproxy:stable
+
       - name: Run OWASP ZAP Baseline Scan
         run: |
           docker run --network=host \
@@ -178,47 +161,306 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8000 \
-            -r zap-report.html \
             -J zap-report.json \
-            -w zap-report.md \
-            -a || true
+            -z "-config scanner.alerts.maxInstances=0" \
+            || true
+
       - name: Upload DAST report
         uses: actions/upload-artifact@v4
         with:
           name: dast-zap-report
-          path: |
-            zap-report.html
-            zap-report.json
-            zap-report.md
-      
-      # ========== UPLOAD TO DEFECTDOJO ==========
+          path: zap-report.json
+
       - name: Upload DAST to DefectDojo
         if: always()
         run: |
-          echo "📤 Uploading DAST report to DefectDojo..."
-          
-          if [ -f zap-report.html ]; then
-            echo "✅ Found zap-report.json file"
-            
+          if [ -f zap-report.json ]; then
             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
               -F "product=$DEFECTDOJO_PRODUCT_ID" \
               -F "scan_type=ZAP Scan" \
-              -F "file=@zap-report.html" \
-              --max-time 30 \
-              || echo "⚠️  DAST upload had issues, but continuing..."
-              
-            echo "✅ DAST upload attempt completed"
-          else
-            echo "❌ zap-report.json not found, skipping upload"
+              -F "minimum_severity=Low" \
+              -F "file=@zap-report.json" \
+              --max-time 60 || true
           fi
-      # ==========================================
-      
-      # ========== CLEANUP ==========
+
       - name: Cleanup Application
         if: always()
         run: |
-          echo "🧹 Stopping application..."
           docker compose down || true
-      # =============================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# name: DevSecOps Pipeline - Akaunting
+
+# on:
+#   workflow_dispatch:
+
+# jobs:
+#   ci:
+#     name: CI - Build
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: docker/setup-buildx-action@v3
+#       - name: Build Docker image
+#         run: docker build -t akaunting-app .
+
+#   sast:
+#     name: SAST - Semgrep
+#     runs-on: ubuntu-latest
+#     needs: ci
+    
+#     # ========== DEFECTDOJO CONFIGURATION ==========
+#     env:
+#       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
+#       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
+#       DEFECTDOJO_PRODUCT_ID: '1'
+#       DEFECTDOJO_ENGAGEMENT_ID: '1'
+#     # ==============================================
+
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Install Semgrep
+#         run: |
+#           python3 -m pip install --upgrade pip
+#           pip install semgrep
+#       - name: Semgrep JSON
+#         run: |
+#           semgrep scan \
+#             --config p/php \
+#             --config p/javascript \
+#             --json \
+#             --output semgrep.json \
+#             .
+#       - name: Semgrep SARIF
+#         run: |
+#           semgrep scan \
+#             --config p/php \
+#             --config p/javascript \
+#             --sarif \
+#             --output semgrep.sarif \
+#             .
+#       - name: Upload SAST report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: sast-semgrep-report
+#           path: |
+#             semgrep.json
+#             semgrep.sarif
+      
+#       # ========== UPLOAD TO DEFECTDOJO ==========
+#       - name: Upload SAST to DefectDojo
+#         if: always()
+#         run: |
+#           echo "📤 Uploading SAST report to DefectDojo..."
+          
+#           if [ -f semgrep.json ]; then
+#             echo "✅ Found semgrep.json file"
+            
+#             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+#               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+#               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+#               -F "product=$DEFECTDOJO_PRODUCT_ID" \
+#               -F "scan_type=Semgrep JSON Report" \
+#               -F "file=@semgrep.json" \
+#               --max-time 30 \
+#               || echo "⚠️  SAST upload had issues, but continuing..."
+              
+#             echo "✅ SAST upload attempt completed"
+#           else
+#             echo "❌ semgrep.json not found, skipping upload"
+#           fi
+#       # ==========================================
+
+#   sca:
+#     name: SCA - Trivy
+#     runs-on: ubuntu-latest
+#     needs: ci
+    
+#     # ========== DEFECTDOJO CONFIGURATION ==========
+#     env:
+#       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
+#       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
+#       DEFECTDOJO_PRODUCT_ID: '1'
+#       DEFECTDOJO_ENGAGEMENT_ID: '1'
+#     # ==============================================
+
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: docker build -t akaunting-app .
+#       - name: Trivy JSON
+#         uses: aquasecurity/trivy-action@0.24.0
+#         with:
+#           scan-type: image
+#           image-ref: akaunting-app
+#           format: json
+#           output: trivy-report.json
+#           severity: HIGH,CRITICAL
+#           exit-code: 0
+#       - name: Trivy Table
+#         run: |
+#           docker run --rm \
+#             -v /var/run/docker.sock:/var/run/docker.sock \
+#             aquasec/trivy:latest image \
+#             --format table \
+#             akaunting-app > trivy-report.txt
+#       - name: Upload SCA report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: sca-trivy-report
+#           path: |
+#             trivy-report.json
+#             trivy-report.txt
+      
+#       # ========== UPLOAD TO DEFECTDOJO ==========
+#       - name: Upload SCA to DefectDojo
+#         if: always()
+#         run: |
+#           echo "📤 Uploading SCA report to DefectDojo..."
+          
+#           if [ -f trivy-report.json ]; then
+#             echo "✅ Found trivy-report.json file"
+            
+#             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+#               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+#               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+#               -F "product=$DEFECTDOJO_PRODUCT_ID" \
+#               -F "scan_type=Trivy Scan" \
+#               -F "file=@trivy-report.json" \
+#               --max-time 30 \
+#               || echo "⚠️  SCA upload had issues, but continuing..."
+              
+#             echo "✅ SCA upload attempt completed"
+#           else
+#             echo "❌ trivy-report.json not found, skipping upload"
+#           fi
+#       # ==========================================
+
+#   dast:
+#     name: DAST - OWASP ZAP
+#     runs-on: ubuntu-latest
+    
+#     # ========== DEFECTDOJO CONFIGURATION ==========
+#     env:
+#       DEFECTDOJO_URL: 'http://35.175.208.95:8080'
+#       DEFECTDOJO_TOKEN: '737047c42f6999f1b18b170baa677d1beb05f889'
+#       DEFECTDOJO_PRODUCT_ID: '1'
+#       DEFECTDOJO_ENGAGEMENT_ID: '1'
+#     # ==============================================
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#       - name: Start application
+#         run: |
+#           docker compose up --build -d
+#           sleep 90
+#       - name: Verify app is reachable
+#         run: |
+#           curl -I http://localhost:8000
+#       - name: Pull OWASP ZAP image
+#         run: |
+#           docker pull ghcr.io/zaproxy/zaproxy:stable
+#       - name: Run OWASP ZAP Baseline Scan
+#         run: |
+#           docker run --network=host \
+#             --user root \
+#             -v ${{ github.workspace }}:/zap/wrk/:rw \
+#             ghcr.io/zaproxy/zaproxy:stable \
+#             zap-baseline.py \
+#             -t http://localhost:8000 \
+#             -r zap-report.html \
+#             -J zap-report.json \
+#             -w zap-report.md \
+#             -a || true
+#       - name: Upload DAST report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: dast-zap-report
+#           path: |
+#             zap-report.html
+#             zap-report.json
+#             zap-report.md
+      
+#       # ========== UPLOAD TO DEFECTDOJO ==========
+#       - name: Upload DAST to DefectDojo
+#         if: always()
+#         run: |
+#           echo "📤 Uploading DAST report to DefectDojo..."
+          
+#           if [ -f zap-report.html ]; then
+#             echo "✅ Found zap-report.json file"
+            
+#             curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+#               -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+#               -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+#               -F "product=$DEFECTDOJO_PRODUCT_ID" \
+#               -F "scan_type=ZAP Scan" \
+#               -F "file=@zap-report.html" \
+#               --max-time 30 \
+#               || echo "⚠️  DAST upload had issues, but continuing..."
+              
+#             echo "✅ DAST upload attempt completed"
+#           else
+#             echo "❌ zap-report.json not found, skipping upload"
+#           fi
+#       # ==========================================
+      
+#       # ========== CLEANUP ==========
+#       - name: Cleanup Application
+#         if: always()
+#         run: |
+#           echo "🧹 Stopping application..."
+#           docker compose down || true
+#       # =============================
