@@ -15,7 +15,7 @@ services:
       - akaunting_network
 
   akaunting:
-    image: akaunting/akaunting:latest
+    image: jawadessadri123/repo1:akaunting-stable-old
     container_name: akaunting_app
     restart: unless-stopped
     depends_on:
