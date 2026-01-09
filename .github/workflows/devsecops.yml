@@ -7,57 +7,91 @@ jobs:
   ci:
     name: CI - Build
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - run: docker build -t akaunting-app .
+      - name: Build Docker image
+        run: docker build -t akaunting-app .
 
   sast:
     name: SAST - Semgrep
     runs-on: ubuntu-latest
     needs: ci
+
+    # ========== DEFECTDOJO CONFIGURATION ==========
     env:
-      DEFECTDOJO_URL: http://35.175.208.95:8080
+      DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
       DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
-      DEFECTDOJO_PRODUCT_ID: "1"
-      DEFECTDOJO_ENGAGEMENT_ID: "1"
+      DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
+      DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
+    # ==============================================
+
     steps:
       - uses: actions/checkout@v4
-      - run: |
+
+      - name: Install Semgrep
+        run: |
           python3 -m pip install --upgrade pip
           pip install semgrep
-      - run: |
+
+      - name: Semgrep JSON
+        run: |
           semgrep scan \
             --config p/php \
             --config p/javascript \
             --json \
             --output semgrep.json \
             .
-      - uses: actions/upload-artifact@v4
+
+      - name: Semgrep SARIF
+        run: |
+          semgrep scan \
+            --config p/php \
+            --config p/javascript \
+            --sarif \
+            --output semgrep.sarif \
+            .
+
+      - name: Upload SAST report
+        uses: actions/upload-artifact@v4
         with:
           name: sast-semgrep-report
-          path: semgrep.json
-      - run: |
-          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-            -H "Authorization: Token $DEFECTDOJO_TOKEN" \
-            -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
-            -F "product=$DEFECTDOJO_PRODUCT_ID" \
-            -F "scan_type=Semgrep JSON Report" \
-            -F "file=@semgrep.json"
+          path: |
+            semgrep.json
+            semgrep.sarif
+
+      - name: Upload SAST to DefectDojo
+        if: always()
+        run: |
+          if [ -f semgrep.json ]; then
+            curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+              -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+              -F "product=$DEFECTDOJO_PRODUCT_ID" \
+              -F "scan_type=Semgrep JSON Report" \
+              -F "file=@semgrep.json" || true
+          fi
 
   sca:
     name: SCA - Trivy
     runs-on: ubuntu-latest
     needs: ci
+
+    # ========== DEFECTDOJO CONFIGURATION ==========
     env:
-      DEFECTDOJO_URL: http://35.175.208.95:8080
+      DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
       DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
-      DEFECTDOJO_PRODUCT_ID: "1"
-      DEFECTDOJO_ENGAGEMENT_ID: "1"
+      DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
+      DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
+    # ==============================================
+
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t akaunting-app .
-      - uses: aquasecurity/trivy-action@0.24.0
+
+      - name: Trivy JSON
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: image
           image-ref: akaunting-app
@@ -65,63 +99,89 @@ jobs:
           output: trivy-report.json
           severity: HIGH,CRITICAL
           exit-code: 0
-      - uses: actions/upload-artifact@v4
+
+      - name: Trivy Table
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --format table \
+            akaunting-app > trivy-report.txt
+
+      - name: Upload SCA report
+        uses: actions/upload-artifact@v4
         with:
           name: sca-trivy-report
-          path: trivy-report.json
-      - run: |
-          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-            -H "Authorization: Token $DEFECTDOJO_TOKEN" \
-            -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
-            -F "product=$DEFECTDOJO_PRODUCT_ID" \
-            -F "scan_type=Trivy Scan" \
-            -F "file=@trivy-report.json"
+          path: |
+            trivy-report.json
+            trivy-report.txt
+
+      - name: Upload SCA to DefectDojo
+        if: always()
+        run: |
+          if [ -f trivy-report.json ]; then
+            curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+              -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+              -F "product=$DEFECTDOJO_PRODUCT_ID" \
+              -F "scan_type=Trivy Scan" \
+              -F "file=@trivy-report.json" || true
+          fi
 
   dast:
     name: DAST - OWASP ZAP
     runs-on: ubuntu-latest
+
+    # ========== DEFECTDOJO CONFIGURATION ==========
     env:
-      DEFECTDOJO_URL: http://35.175.208.95:8080
+      DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
       DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
-      DEFECTDOJO_PRODUCT_ID: "1"
-      DEFECTDOJO_ENGAGEMENT_ID: "1"
+      DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
+      DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
+    # ==============================================
+
     steps:
       - uses: actions/checkout@v4
 
-      - run: |
+      - name: Start application
+        run: |
           docker compose up --build -d
           sleep 90
 
-      - run: curl -I http://localhost:8000
+      - name: Verify app is reachable
+        run: curl -I http://localhost:8000
 
-      - run: docker pull ghcr.io/zaproxy/zaproxy:stable
-
-      - run: |
+      - name: Run OWASP ZAP Baseline Scan
+        run: |
           docker run --network=host \
-            -v ${{ github.workspace }}:/zap/wrk \
+            --user root \
+            -v ${{ github.workspace }}:/zap/wrk/:rw \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8000 \
-            -J /zap/wrk/zap-report.json \
-            -a || true
+            -J zap-report.json || true
 
-      - run: ls -lah zap-report.json
+      - name: Upload DAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-zap-report
+          path: zap-report.json
 
-      - run: |
-          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-            -H "Authorization: Token $DEFECTDOJO_TOKEN" \
-            -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
-            -F "product=$DEFECTDOJO_PRODUCT_ID" \
-            -F "scan_type=ZAP Scan" \
-            -F "file=@zap-report.json"
+      - name: Upload DAST to DefectDojo
+        if: always()
+        run: |
+          if [ -f zap-report.json ]; then
+            curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DEFECTDOJO_TOKEN" \
+              -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
+              -F "product=$DEFECTDOJO_PRODUCT_ID" \
+              -F "scan_type=ZAP Scan" \
+              -F "file=@zap-report.json" || true
+          fi
 
-      - run: docker compose down || true
-
-
-
-
-
-
+      - name: Cleanup Application
+        if: always()
+        run: docker compose down || true
 
 
 
