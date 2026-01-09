@@ -6,9 +6,7 @@ set -e
 kubectl apply -f ~/deploy/k8s/akaunting-all.yaml
 
 # Wait for deployments to be ready
-kubectl rollout status deployment/mysql -n akaunting --timeout=180s
-kubectl rollout status deployment/akaunting -n akaunting --timeout=180s
-kubectl rollout status deployment/phpmyadmin -n akaunting --timeout=180s
+sleep 100
 
 # Start Minikube tunnel if not already running
 if ! pgrep -f "minikube tunnel" >/dev/null; then
