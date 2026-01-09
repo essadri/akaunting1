@@ -27,7 +27,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "deploy-akaunting.sh"
-          target: "~/deploy"
+          target: "~/deploy/"
 
       - name: Copy Kubernetes manifest to server
         uses: appleboy/scp-action@v0.1.7
@@ -36,7 +36,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "k8s/akaunting-all.yaml"
-          target: "~/deploy/k8s"
+          target: "~/deploy/k8s/"
 
       - name: Run deploy script
         uses: appleboy/ssh-action@v1.0.3
