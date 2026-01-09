@@ -87,32 +87,35 @@ jobs:
       DEFECTDOJO_ENGAGEMENT_ID: "1"
     steps:
       - uses: actions/checkout@v4
+
       - run: |
           docker compose up --build -d
           sleep 90
+
       - run: curl -I http://localhost:8000
+
       - run: docker pull ghcr.io/zaproxy/zaproxy:stable
+
       - run: |
           docker run --network=host \
-            -v ${{ github.workspace }}:/zap/wrk/:rw \
+            -v ${{ github.workspace }}:/zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-full-scan.py \
+            zap-baseline.py \
             -t http://localhost:8000 \
-            -J zap-report.json \
+            -J /zap/wrk/zap-report.json \
             -a || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dast-zap-report
-          path: zap-report.json
+
+      - run: ls -lah zap-report.json
+
       - run: |
           curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
             -H "Authorization: Token $DEFECTDOJO_TOKEN" \
             -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" \
             -F "product=$DEFECTDOJO_PRODUCT_ID" \
             -F "scan_type=ZAP Scan" \
-            -F "file=@${{ github.workspace }}/zap-report.json"
-      - run: docker compose down || true
+            -F "file=@zap-report.json"
 
+      - run: docker compose down || true
 
 
 
