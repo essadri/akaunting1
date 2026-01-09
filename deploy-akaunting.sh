@@ -21,6 +21,10 @@ if ! pgrep -f "kubectl port-forward -n akaunting svc/akaunting 8080:80" >/dev/nu
   kubectl port-forward -n akaunting svc/akaunting 8080:80 --address 0.0.0.0 > /dev/null 2>&1 &
 fi
 
+if ! pgrep -f "kubectl port-forward -n akaunting svc/phpmyadmin 8001:80" >/dev/null; then
+  kubectl port-forward -n akaunting svc/phpmyadmin 8001:80 --address 0.0.0.0 > /dev/null 2>&1 &
+fi
+
 exit 0
 
 
