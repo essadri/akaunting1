@@ -36,16 +36,18 @@ class PublicRegister extends Controller
             'locale' => $locale,
             'enabled' => '1',
         ]));
-
         dispatch_sync(new CreateUser([
             'name' => $request->get('name'),
             'email' => $request->get('email'),
             'password' => $request->get('password'),
             'locale' => $locale,
+            'landing_page' => 'dashboard',
             'companies' => [$company->id],
             'roles' => ['1'],
             'enabled' => '1',
+            'send_invitation' => false,
         ]));
+
 
         flash(trans('messages.success.added', ['type' => trans_choice('general.users', 1)]))->success();
 
