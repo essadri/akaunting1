@@ -24,6 +24,7 @@ Route::group(['prefix' => 'auth'], function () {
     Route::post('register', 'Auth\Register@store')->name('register.store');
 });
 
-Route::get('/', function () {
-    return redirect()->route('login');
-});
+Route::get('/', 'Auth\PublicRegister@index')->name('index');
+
+Route::get('register', 'Auth\PublicRegister@create')->name('register.public');
+Route::post('register', 'Auth\PublicRegister@store')->name('register.public.store');

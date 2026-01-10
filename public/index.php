@@ -14,6 +14,8 @@ use Livewire\Livewire;
 
 define('LARAVEL_START', microtime(true));
 
+ob_start();
+
 $_ENV['ASSET_URL'] = $_ENV['ASSET_URL'] ?? './';
 $_ENV['LIVEWIRE_ASSET_URL'] = $_ENV['LIVEWIRE_ASSET_URL'] ?? './';
 
@@ -71,6 +73,14 @@ $kernel = $app->make(Kernel::class);
 
 $response = $kernel->handle(
     $request = Request::capture()
-)->send();
+);
+
+if (ob_get_length()) {
+    ob_end_clean();
+} else {
+    ob_end_flush();
+}
+
+$response->send();
 
 $kernel->terminate($request, $response);
