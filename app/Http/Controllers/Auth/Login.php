@@ -102,7 +102,9 @@ class Login extends Controller
         }
 
         // Redirect to landing page if is user
-        $url = route($user->landing_page, ['company_id' => $company->id]);
+        $landing_page = $user->landing_page ?: 'dashboard';
+        $route_name = \Route::has($landing_page) ? $landing_page : 'dashboard';
+        $url = route($route_name, ['company_id' => $company->id]);
 
         return response()->json([
             'status' => null,

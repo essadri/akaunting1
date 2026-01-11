@@ -48,4 +48,4 @@ COPY config/php.ini /usr/local/etc/php/conf.d/
 WORKDIR /var/www/html
 COPY wait-for-db.php /usr/local/bin/wait-for-db.php
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
