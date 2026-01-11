@@ -127,7 +127,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Start application
         run: |
-          docker compose up --build -d
+          docker compose -f akaunting-docker/docker-compose.yml up --build -d
           sleep 90
       - name: Verify app is reachable
         run: |
