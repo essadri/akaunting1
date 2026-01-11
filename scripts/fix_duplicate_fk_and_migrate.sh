@@ -46,7 +46,7 @@ if [ -s "$LOCATIONS_FILE" ]; then
   while read -r schema table; do
     if [ -n "$schema" ] && [ -n "$table" ]; then
       echo "Dropping foreign key 'original_media_id' from $schema.$table"
-      docker exec "$MYSQL_CONTAINER" bash -lc "mysql -uroot -p'${ROOT_PW}' -e \"USE \\\"$schema\\\"; ALTER TABLE \\\"$table\\\" DROP FOREIGN KEY original_media_id;\"" || echo "Warning: failed to drop FK on $schema.$table"
+      docker exec "$MYSQL_CONTAINER" bash -lc "mysql -uroot -p'${ROOT_PW}' -e 'USE \`$schema\`; ALTER TABLE \`$table\` DROP FOREIGN KEY original_media_id;'" || echo "Warning: failed to drop FK on $schema.$table"
     fi
   done < "$LOCATIONS_FILE"
 else
