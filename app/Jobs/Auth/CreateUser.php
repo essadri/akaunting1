@@ -100,6 +100,10 @@ class CreateUser extends Job implements HasOwner, HasSource, ShouldCreate
 
     protected function shouldSendInvitation()
     {
+        if ($this->request->get('send_invitation') === false) {
+            return false;
+        }
+
         if (app()->runningUnitTests()) {
             return true;
         }
