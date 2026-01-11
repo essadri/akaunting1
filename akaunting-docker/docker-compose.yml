@@ -1,31 +1,38 @@
+
+
+version: "3.9"
+
 services:
   php:
     build: .docker/php
     volumes:
-      - ./volumes/akaunting:/var/www/html
-      - ~/.composer:/var/www/.composer
-      - ~/.npm:/var/www/.npm/
+      # 👉 USE THE REPO YOU ARE IN (DEV MODE)
+      - ../:/var/www/html
+
+      # caches (optional but recommended)
+      - composer_cache:/var/www/.composer
+      - npm_cache:/var/www/.npm
     restart: unless-stopped
     environment:
-      - HOST_UID=${HOST_UID:-1000}
-      - HOST_GID=${HOST_GID:-1000}
-      - AKAUNTING_VERSION=${AKAUNTING_VERSION:-3.1.11}
-      - ADM_EMAIL=${ADM_EMAIL:-admin@test.domain}
-      - ADM_PASSWD=${ADM_PASSWD:-admin}
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
 
-      - APP_ENV=${APP_ENV:-local}
+      ADM_EMAIL: ${ADM_EMAIL:-admin@test.domain}
+      ADM_PASSWD: ${ADM_PASSWD:-admin}
 
-      - DB_CONNECTION=${DB_CONNECTION:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_DATABASE=${DB_DATABASE:-akaunting}
-      - DB_USERNAME=${DB_USERNAME:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - DB_PREFIX=${DB_PREFIX:-}
+      APP_ENV: ${APP_ENV:-local}
 
-      - XDEBUG_CONFIG
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: akaunting
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_PREFIX: ""
+
     extra_hosts:
       - host.docker.internal:host-gateway
+
   web:
     build:
       context: .docker/nginx
@@ -33,18 +40,91 @@ services:
         NGINX_CONF: http
     restart: unless-stopped
     volumes:
-      - ./volumes/akaunting:/var/www/html:ro
+      # 👉 SAME REPO, READ-ONLY
+      - ../:/var/www/html:ro
     depends_on:
       - php
     ports:
-      - 80:80
+      - "80:80"
+
   mysql:
-    image: mysql
+    image: mysql:8.0
+    restart: unless-stopped
     volumes:
-      - ./volumes/mysql/data:/var/lib/mysql
-      - ./volumes/mysql/dump:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql
+      - mysql_dump:/docker-entrypoint-initdb.d
     ports:
-      - 3306:3306
+      - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-akaunting}
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: akaunting
+
+volumes:
+  mysql_data:
+  mysql_dump:
+  composer_cache:
+  npm_cache:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# services:
+#   php:
+#     build: .docker/php
+#     volumes:
+#       - ./volumes/akaunting:/var/www/html
+#       - ~/.composer:/var/www/.composer
+#       - ~/.npm:/var/www/.npm/
+#     restart: unless-stopped
+#     environment:
+#       - HOST_UID=${HOST_UID:-1000}
+#       - HOST_GID=${HOST_GID:-1000}
+#       - AKAUNTING_VERSION=${AKAUNTING_VERSION:-3.1.11}
+#       - ADM_EMAIL=${ADM_EMAIL:-admin@test.domain}
+#       - ADM_PASSWD=${ADM_PASSWD:-admin}
+
+#       - APP_ENV=${APP_ENV:-local}
+
+#       - DB_CONNECTION=${DB_CONNECTION:-mysql}
+#       - DB_PORT=${DB_PORT:-3306}
+#       - DB_HOST=${DB_HOST:-mysql}
+#       - DB_DATABASE=${DB_DATABASE:-akaunting}
+#       - DB_USERNAME=${DB_USERNAME:-root}
+#       - DB_PASSWORD=${DB_PASSWORD:-root}
+#       - DB_PREFIX=${DB_PREFIX:-}
+
+#       - XDEBUG_CONFIG
+#     extra_hosts:
+#       - host.docker.internal:host-gateway
+#   web:
+#     build:
+#       context: .docker/nginx
+#       args:
+#         NGINX_CONF: http
+#     restart: unless-stopped
+#     volumes:
+#       - ./volumes/akaunting:/var/www/html:ro
+#     depends_on:
+#       - php
+#     ports:
+#       - 80:80
+#   mysql:
+#     image: mysql
+#     volumes:
+#       - ./volumes/mysql/data:/var/lib/mysql
+#       - ./volumes/mysql/dump:/docker-entrypoint-initdb.d
+#     ports:
+#       - 3306:3306
+#     environment:
+#       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+#       - MYSQL_DATABASE=${MYSQL_DATABASE:-akaunting}

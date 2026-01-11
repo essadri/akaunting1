@@ -6,6 +6,17 @@ RUN apt-get update && apt-get install -y \
     unzip \
     --no-install-recommends
 
+
+# Install Node.js + npm (required by entrypoint)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm
+
+# Fix git dubious ownership for mounted repo
+RUN git config --global --add safe.directory /var/www/html
+
+
+
 # Install PHP extensions
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN chmod uga+x /usr/local/bin/install-php-extensions && sync \
