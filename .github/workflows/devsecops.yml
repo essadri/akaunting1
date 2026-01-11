@@ -131,7 +131,7 @@ jobs:
           sleep 90
       - name: Verify app is reachable
         run: |
-          curl -I http://localhost:8000
+          curl -I http://localhost:80
       - name: Pull OWASP ZAP image
         run: |
           docker pull ghcr.io/zaproxy/zaproxy:stable
