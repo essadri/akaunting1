@@ -1,21 +1,19 @@
-# =========================
 # Namespace
-# =========================
+
 apiVersion: v1
 kind: Namespace
 metadata:
   name: akaunting
 ---
-# =========================
-# MySQL Deployment (STATELESS)
-# =========================
+# MySQL Deployment
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
   namespace: akaunting
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: mysql
@@ -39,9 +37,8 @@ spec:
             - name: MYSQL_PASSWORD
               value: akauntingpass
 ---
-# =========================
-# MySQL Service (INTERNAL)
-# =========================
+
+# MySQL Service 
 apiVersion: v1
 kind: Service
 metadata:
@@ -55,17 +52,15 @@ spec:
     - port: 3306
       targetPort: 3306
 ---
-# =========================
 # Akaunting Deployment
-# (NO VOLUMES — IMAGE FS INTACT)
-# =========================
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: akaunting
   namespace: akaunting
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: akaunting
@@ -93,9 +88,8 @@ spec:
             - name: DB_PREFIX
               value: akon_
 ---
-# =========================
 # Akaunting Service (NodePort)
-# =========================
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -110,16 +104,15 @@ spec:
       targetPort: 80
       nodePort: 30080
 ---
-# =========================
 # phpMyAdmin Deployment
-# =========================
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: phpmyadmin
   namespace: akaunting
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: phpmyadmin
@@ -139,9 +132,8 @@ spec:
             - name: PMA_PORT
               value: "3306"
 ---
-# =========================
 # phpMyAdmin Service (NodePort)
-# =========================
+
 apiVersion: v1
 kind: Service
 metadata:

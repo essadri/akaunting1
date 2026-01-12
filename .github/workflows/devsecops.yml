@@ -1,4 +1,4 @@
-name: DevSecOps Pipeline - Akaunting
+name: DevSecOps Pipeline 
 
 on:
   workflow_dispatch:
@@ -15,7 +15,6 @@ jobs:
       DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
       DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
       DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
-    # ==============================================
 
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +72,6 @@ jobs:
       DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
       DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
       DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
-    # ==============================================
 
     steps:
       - uses: actions/checkout@v4
